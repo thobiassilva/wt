@@ -35,7 +35,7 @@ ARGUMENTOS:
 OPCOES:
     -w, --name NAME     Nome da worktree (default: derivado da branch)
     -b, --base BRANCH   Branch de origem (default: branch atual)
-    -p, --path DIR      Diretorio pai da worktree (default: branchs/)
+    -p, --path DIR      Diretorio pai da worktree (default: ../)
         --no-include    Pular copia de .worktreeinclude
     -n, --dry-run       Mostra o que seria feito sem executar
     -h, --help          Mostra esta ajuda
@@ -50,7 +50,7 @@ EXEMPLOS:
     wt feature/loginForm
     wt feature/loginForm --name meu-fix
     wt feature/loginForm --base main
-    wt feature/loginForm --path ../worktrees
+    wt feature/loginForm --path ./branchs
     wt feature/loginForm --dry-run
 EOF
 }
@@ -175,7 +175,7 @@ copy_worktreeinclude_files() {
 main() {
     local WORKTREE_NAME=""
     local BASE_BRANCH=""
-    local PATH_PREFIX="branchs"
+    local PATH_PREFIX=".."
     local NO_INCLUDE=false
     local DRY_RUN=false
     local POSITIONALS=()
