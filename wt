@@ -1,0 +1,274 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION="1.0.0"
+
+# ---------------------------------------------------------------------------
+# Cores
+# ---------------------------------------------------------------------------
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ---------------------------------------------------------------------------
+# Utilitarios
+# ---------------------------------------------------------------------------
+die()  { printf "${RED}erro:${NC} %s\n" "$*" >&2; exit 1; }
+info() { printf "${GREEN}>>>${NC} %s\n" "$*"; }
+warn() { printf "${YELLOW}aviso:${NC} %s\n" "$*" >&2; }
+
+show_version() { printf "wt %s\n" "$VERSION"; }
+
+show_help() {
+    cat <<'EOF'
+wt - Gerenciador de Git Worktrees
+
+USO:
+    wt <branch> [opcoes]
+
+ARGUMENTOS:
+    <branch>            Nome da branch git (obrigatorio)
+
+OPCOES:
+    -w, --name NAME     Nome da worktree (default: derivado da branch)
+    -b, --base BRANCH   Branch de origem (default: branch atual)
+    -p, --path DIR      Diretorio pai da worktree (default: branchs/)
+        --no-include    Pular copia de .worktreeinclude
+    -n, --dry-run       Mostra o que seria feito sem executar
+    -h, --help          Mostra esta ajuda
+    -V, --version       Mostra versao
+
+DERIVACAO (branch -> worktree):
+    feature/loginForm      -> feature-login-form
+    bugfix/fixApiTimeout   -> bugfix-fix-api-timeout
+    hotfix-urgent          -> hotfix-urgent
+
+EXEMPLOS:
+    wt feature/loginForm
+    wt feature/loginForm --name meu-fix
+    wt feature/loginForm --base main
+    wt feature/loginForm --path ../worktrees
+    wt feature/loginForm --dry-run
+EOF
+}
+
+# ---------------------------------------------------------------------------
+# Derivacao: branch -> worktree name (camelCase -> kebab-case)
+# ---------------------------------------------------------------------------
+derive_worktree_name() {
+    printf '%s' "$1" \
+        | sed 's|/|-|g' \
+        | sed 's/\([a-z0-9]\)\([A-Z]\)/\1-\2/g' \
+        | tr '[:upper:]' '[:lower:]'
+}
+
+# ---------------------------------------------------------------------------
+# Validacoes
+# ---------------------------------------------------------------------------
+validate_git_repo() {
+    local root
+    root=$(git rev-parse --show-toplevel 2>/dev/null) || die "Nao e um repositorio git"
+    printf '%s' "$root"
+}
+
+validate_branch_name() {
+    if ! git check-ref-format --branch "$1" >/dev/null 2>&1; then
+        die "Nome de branch invalido: $1"
+    fi
+}
+
+validate_worktree_name() {
+    local name="$1"
+    if [[ -z "$name" ]]; then die "Nome da worktree nao pode ser vazio"; fi
+    if [[ "$name" == *..* ]]; then die "Nome da worktree nao pode conter '..'"; fi
+    if [[ "$name" == /* ]]; then die "Nome da worktree nao pode ser um path absoluto"; fi
+    if [[ "$name" == *" "* ]]; then die "Nome da worktree nao pode conter espacos"; fi
+}
+
+# ---------------------------------------------------------------------------
+# Criacao de branch
+# ---------------------------------------------------------------------------
+create_branch_if_needed() {
+    local branch="$1"
+    local base="$2"
+
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+        info "Branch ja existe: $branch"
+    else
+        info "Criando branch $branch a partir de $base..."
+        git branch "$branch" "$base" || die "Falha ao criar branch a partir de '$base'"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Criacao de worktree
+# ---------------------------------------------------------------------------
+create_worktree() {
+    local dest="$1"
+    local branch="$2"
+
+    if [[ -d "$dest" ]]; then
+        die "Worktree ja existe: $dest"
+    fi
+
+    git worktree add "$dest" "$branch" || die "Falha ao criar worktree"
+}
+
+# ---------------------------------------------------------------------------
+# Copia de .worktreeinclude (logica do Claude Code worktree.ts)
+# ---------------------------------------------------------------------------
+copy_worktreeinclude_files() {
+    local repo_root="$1"
+    local dest="$2"
+    local dry_run="$3"
+    local include_file="$repo_root/.worktreeinclude"
+
+    [[ -f "$include_file" ]] || return 0
+
+    local count=0
+
+    while IFS= read -r pattern || [[ -n "$pattern" ]]; do
+        # Trim whitespace
+        pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+        pattern="${pattern%"${pattern##*[![:space:]]}"}"
+
+        # Pular linhas vazias e comentarios
+        [[ -z "$pattern" ]] && continue
+        [[ "$pattern" == \#* ]] && continue
+
+        # Negacao nao suportada
+        if [[ "$pattern" == \!* ]]; then
+            warn "Padrao de negacao nao suportado: $pattern"
+            continue
+        fi
+
+        # Usar git para encontrar arquivos gitignored que batem com o pattern
+        while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            if [[ "$dry_run" == true ]]; then
+                info "[dry-run] Copiaria: $file"
+            else
+                mkdir -p "$dest/$(dirname "$file")"
+                cp "$repo_root/$file" "$dest/$file"
+            fi
+            ((count++))
+        done < <(cd "$repo_root" && git ls-files \
+            --others --ignored --exclude-standard -- "$pattern" 2>/dev/null)
+    done < "$include_file"
+
+    if [[ $count -gt 0 ]]; then
+        if [[ "$dry_run" == true ]]; then
+            info "$count arquivo(s) seriam copiados via .worktreeinclude"
+        else
+            info "Copiados $count arquivo(s) via .worktreeinclude"
+        fi
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+main() {
+    local WORKTREE_NAME=""
+    local BASE_BRANCH=""
+    local PATH_PREFIX="branchs"
+    local NO_INCLUDE=false
+    local DRY_RUN=false
+    local POSITIONALS=()
+
+    # --- Parse args ---
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -w|--name)
+                [[ -z "${2:-}" ]] && die "--name requer um valor"
+                WORKTREE_NAME="$2"; shift 2 ;;
+            -b|--base)
+                [[ -z "${2:-}" ]] && die "--base requer um valor"
+                BASE_BRANCH="$2"; shift 2 ;;
+            -p|--path)
+                [[ -z "${2:-}" ]] && die "--path requer um valor"
+                PATH_PREFIX="$2"; shift 2 ;;
+            --no-include)
+                NO_INCLUDE=true; shift ;;
+            -n|--dry-run)
+                DRY_RUN=true; shift ;;
+            -h|--help)
+                show_help; exit 0 ;;
+            -V|--version)
+                show_version; exit 0 ;;
+            --)
+                shift; break ;;
+            -*)
+                die "Opcao desconhecida: $1" ;;
+            *)
+                POSITIONALS+=("$1"); shift ;;
+        esac
+    done
+    POSITIONALS+=("$@")
+
+    local BRANCH_NAME="${POSITIONALS[0]:-}"
+
+    # --- Validar git repo ---
+    local REPO_ROOT
+    REPO_ROOT=$(validate_git_repo)
+
+    # --- Branch obrigatoria ---
+    [[ -z "$BRANCH_NAME" ]] && { show_help; exit 1; }
+
+    # --- Validar branch ---
+    validate_branch_name "$BRANCH_NAME"
+
+    # --- Base branch: default = branch atual ---
+    if [[ -z "$BASE_BRANCH" ]]; then
+        BASE_BRANCH=$(git branch --show-current 2>/dev/null || true)
+        [[ -z "$BASE_BRANCH" ]] && die "Nao foi possivel determinar a branch atual. Use --base."
+    fi
+
+    # --- Derivar nome da worktree ---
+    if [[ -z "$WORKTREE_NAME" ]]; then
+        WORKTREE_NAME=$(derive_worktree_name "$BRANCH_NAME")
+    fi
+
+    # --- Validar worktree name ---
+    validate_worktree_name "$WORKTREE_NAME"
+
+    local DEST="$PATH_PREFIX/$WORKTREE_NAME"
+
+    # --- Resumo ---
+    printf "\n"
+    printf "${BOLD}----------------------------------${NC}\n"
+    printf "${BOLD}Worktree :${NC} %s\n" "$DEST"
+    printf "${BOLD}Branch   :${NC} %s\n" "$BRANCH_NAME"
+    printf "${BOLD}Base     :${NC} %s\n" "$BASE_BRANCH"
+    printf "${BOLD}----------------------------------${NC}\n"
+    printf "\n"
+
+    if [[ "$DRY_RUN" == true ]]; then
+        info "[dry-run] Criaria branch '$BRANCH_NAME' a partir de '$BASE_BRANCH'"
+        info "[dry-run] Criaria worktree em '$DEST'"
+
+        if [[ "$NO_INCLUDE" == false ]]; then
+            copy_worktreeinclude_files "$REPO_ROOT" "$DEST" true
+        fi
+
+        info "[dry-run] Nenhuma alteracao foi feita."
+        return 0
+    fi
+
+    # --- Criar branch e worktree ---
+    create_branch_if_needed "$BRANCH_NAME" "$BASE_BRANCH"
+    create_worktree "$DEST" "$BRANCH_NAME"
+
+    # --- Copiar .worktreeinclude ---
+    if [[ "$NO_INCLUDE" == false ]]; then
+        copy_worktreeinclude_files "$REPO_ROOT" "$DEST" false
+    fi
+
+    printf "\n${GREEN}${BOLD}Worktree pronta em ${DEST}${NC}\n\n"
+}
+
+main "$@"
