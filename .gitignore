@@ -1,1 +1,19 @@
 .DS_Store
+firebase-debug.log
+.firebase/
+
+# Go build artifacts
+/wt
+/wt.exe
+/dist/
+
+# IDE
+.idea/
+.vscode/
+
+# Test coverage
+*.out
+coverage.html
+
+# Temporary
+/tmp/
