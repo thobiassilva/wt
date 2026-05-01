@@ -35,6 +35,8 @@ jobs:
       - uses: golangci/golangci-lint-action@v6
         with:
           version: latest
+        env:
+          GOTOOLCHAIN: local
 
   integration:
     runs-on: ubuntu-latest
