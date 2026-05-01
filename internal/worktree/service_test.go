@@ -3,6 +3,7 @@ package worktree
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/afero"
@@ -36,7 +37,7 @@ func TestBuildPlan_NewBranch(t *testing.T) {
 
 	assert.Equal(t, "feature/x", plan.Branch)
 	assert.Equal(t, "main", plan.Base)
-	assert.Equal(t, "/tmp/feature-x", plan.Dest)
+	assert.Equal(t, filepath.Join("/tmp", "feature-x"), plan.Dest)
 	assert.False(t, plan.BranchExists)
 	assert.Equal(t, "/repo", plan.RepoRoot)
 }
@@ -66,7 +67,7 @@ func TestBuildPlan_CustomName(t *testing.T) {
 		PathPrefix: "/tmp",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "/tmp/my-worktree", plan.Dest)
+	assert.Equal(t, filepath.Join("/tmp", "my-worktree"), plan.Dest)
 }
 
 func TestBuildPlan_CustomBase(t *testing.T) {
@@ -145,19 +146,20 @@ func TestBuildPlan_WithInclude(t *testing.T) {
 func TestExecute_NewBranch(t *testing.T) {
 	g := defaultFakeGit()
 	fs, _ := makeFS(t, "/repo")
+	dest := filepath.Join("/tmp", "feature-x")
 
 	svc := newTestService(g, fs)
 	plan := Plan{
 		Branch:       "feature/x",
 		Base:         "main",
-		Dest:         "/tmp/feature-x",
+		Dest:         dest,
 		BranchExists: false,
 		RepoRoot:     "/repo",
 	}
 	require.NoError(t, svc.Execute(context.Background(), plan))
 	assert.Equal(t, []string{"feature/x"}, g.Created)
 	require.Len(t, g.Worktrees, 1)
-	assert.Equal(t, "/tmp/feature-x", g.Worktrees[0].Dest)
+	assert.Equal(t, dest, g.Worktrees[0].Dest)
 }
 
 func TestExecute_ExistingBranch_NoBranchCreate(t *testing.T) {
@@ -169,7 +171,7 @@ func TestExecute_ExistingBranch_NoBranchCreate(t *testing.T) {
 	plan := Plan{
 		Branch:       "feature/x",
 		Base:         "main",
-		Dest:         "/tmp/feature-x",
+		Dest:         filepath.Join("/tmp", "feature-x"),
 		BranchExists: true,
 		RepoRoot:     "/repo",
 	}
@@ -180,7 +182,6 @@ func TestExecute_ExistingBranch_NoBranchCreate(t *testing.T) {
 func TestExecute_CopiesFiles(t *testing.T) {
 	g := defaultFakeGit()
 	fsys, mem := makeFS(t, "/repo")
-	// Create the source file in the fake FS.
 	require.NoError(t, afero.WriteFile(mem, "/repo/.env", []byte("SECRET=1\n"), 0o600))
 	require.NoError(t, mem.MkdirAll("/dest/feature-x", 0o755))
 
@@ -206,7 +207,7 @@ func TestExecute_WorktreeAddError(t *testing.T) {
 	fs, _ := makeFS(t, "/repo")
 
 	svc := newTestService(g, fs)
-	plan := Plan{Branch: "feature/x", Base: "main", Dest: "/tmp/x", BranchExists: true, RepoRoot: "/repo"}
+	plan := Plan{Branch: "feature/x", Base: "main", Dest: filepath.Join("/tmp", "x"), BranchExists: true, RepoRoot: "/repo"}
 	err := svc.Execute(context.Background(), plan)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "worktree add failed")

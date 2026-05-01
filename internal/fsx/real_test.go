@@ -3,6 +3,7 @@ package fsx
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -97,6 +98,9 @@ func TestRealFS_CopyFile(t *testing.T) {
 
 func TestRealFS_CopyFile_PreservesPermissions(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows does not support Unix file permissions")
+	}
 	dir := t.TempDir()
 
 	cases := []struct {
