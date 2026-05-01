@@ -4,11 +4,11 @@ set -euo pipefail
 REPO="thobiassilva/wt"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BOLD='\033[1m'
-NC='\033[0m'
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[0;33m'
+BOLD=$'\033[1m'
+NC=$'\033[0m'
 
 info() { printf "${GREEN}>>>${NC} %s\n" "$*"; }
 warn() { printf "${YELLOW}aviso:${NC} %s\n" "$*" >&2; }
