@@ -53,37 +53,6 @@ changelog:
       - "Merge remote-tracking branch"
       - "Merge branch"
 
-brews:
-  - name: wt
-    repository:
-      owner: thobiassilva
-      name: homebrew-tap
-      token: "{{ .Env.GH_PAT }}"
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-    directory: Formula
-    homepage: https://github.com/thobiassilva/wt
-    description: "Git worktree manager with .worktreeinclude support"
-    license: MIT
-    test: |
-      system "#{bin}/wt --version"
-    install: |
-      bin.install "wt"
-
-scoops:
-  - name: wt
-    repository:
-      owner: thobiassilva
-      name: scoop-bucket
-      token: "{{ .Env.GH_PAT }}"
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-    homepage: https://github.com/thobiassilva/wt
-    description: "Git worktree manager with .worktreeinclude support"
-    license: MIT
-
 release:
   draft: false
   prerelease: auto
