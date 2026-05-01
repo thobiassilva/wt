@@ -12,41 +12,59 @@ CLI para criacao de git worktrees com copia automatica de arquivos gitignored vi
 
 ## Instalacao
 
-**macOS / Linux:**
+### macOS / Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thobiassilva/wt/main/install.sh | bash
 ```
 
-O script detecta seu OS e arquitetura, baixa o binario correto do GitHub Releases e instala em `~/.local/bin/wt`.
+Detecta OS e arquitetura automaticamente, baixa o binario do GitHub Releases, verifica o checksum SHA256 e instala em `~/.local/bin/wt`.
 
-**Windows:**
-
-```powershell
-scoop bucket add thobiassilva https://github.com/thobiassilva/scoop-bucket
-scoop install wt
-```
-
-**macOS (Homebrew):**
-
-```bash
-brew install thobiassilva/tap/wt
-```
-
-Se `~/.local/bin` nao estiver no seu PATH, adicione ao seu `~/.zshrc` (ou `~/.bashrc`):
+Se `~/.local/bin` nao estiver no seu PATH, adicione ao `~/.zshrc` (ou `~/.bashrc`):
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
+### Windows (PowerShell)
+
+```powershell
+irm https://raw.githubusercontent.com/thobiassilva/wt/main/install.ps1 | iex
+```
+
+Detecta a arquitetura (amd64 / arm64), baixa o `.zip` do GitHub Releases, verifica o checksum SHA256 e instala em `$HOME\.local\bin\wt.exe`.
+
+Se o diretorio nao estiver no PATH, o script avisa e mostra o comando para adicionar.
+
+### Instalacao manual (qualquer plataforma)
+
+Baixe o binario diretamente na [pagina de releases](https://github.com/thobiassilva/wt/releases/latest):
+
+| Plataforma | Arquivo |
+|---|---|
+| macOS (Apple Silicon) | `wt_*_darwin_arm64.tar.gz` |
+| macOS (Intel) | `wt_*_darwin_amd64.tar.gz` |
+| Linux (x86_64) | `wt_*_linux_amd64.tar.gz` |
+| Linux (ARM64) | `wt_*_linux_arm64.tar.gz` |
+| Windows (x86_64) | `wt_*_windows_amd64.zip` |
+| Windows (ARM64) | `wt_*_windows_arm64.zip` |
+
+Extraia o binario e coloque em qualquer pasta no seu `PATH`.
+
 ### Atualizacao
 
-Re-execute o comando de instalacao. O script baixa a versao mais recente e substitui o binario.
+Re-execute o comando de instalacao da sua plataforma. O script baixa a versao mais recente e substitui o binario existente.
 
 ### Desinstalacao
 
+**macOS / Linux:**
 ```bash
 rm ~/.local/bin/wt
+```
+
+**Windows:**
+```powershell
+Remove-Item "$HOME\.local\bin\wt.exe"
 ```
 
 ## Uso
