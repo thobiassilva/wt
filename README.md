@@ -12,13 +12,20 @@ CLI para criacao de git worktrees com copia automatica de arquivos gitignored vi
 
 ## Instalacao
 
-### macOS / Linux
+### macOS / Linux / Git Bash / WSL
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thobiassilva/wt/main/install.sh | bash
 ```
 
-Detecta OS e arquitetura automaticamente, baixa o binario do GitHub Releases, verifica o checksum SHA256 e instala em `~/.local/bin/wt`.
+Funciona em qualquer ambiente bash. Detecta OS e arquitetura automaticamente, baixa o binario correto do GitHub Releases, verifica o checksum SHA256 e instala em `~/.local/bin/`.
+
+| Ambiente | Resultado |
+|---|---|
+| macOS | `~/.local/bin/wt` |
+| Linux | `~/.local/bin/wt` |
+| WSL | `~/.local/bin/wt` |
+| Git Bash (Windows) | `~/.local/bin/wt.exe` |
 
 Se `~/.local/bin` nao estiver no seu PATH, adicione ao `~/.zshrc` (ou `~/.bashrc`):
 
@@ -26,7 +33,7 @@ Se `~/.local/bin` nao estiver no seu PATH, adicione ao `~/.zshrc` (ou `~/.bashrc
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### Windows (PowerShell)
+### Windows (PowerShell nativo)
 
 ```powershell
 irm https://raw.githubusercontent.com/thobiassilva/wt/main/install.ps1 | iex

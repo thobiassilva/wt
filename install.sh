@@ -15,28 +15,39 @@ warn() { printf "${YELLOW}aviso:${NC} %s\n" "$*" >&2; }
 die()  { printf "${RED}erro:${NC} %s\n" "$*" >&2; exit 1; }
 
 # --- Detect OS ---
+# Supports: Linux (native + WSL), macOS, Git Bash (MINGW/MSYS on Windows)
 OS="$(uname -s)"
 case "$OS" in
-    Linux)   GOOS="linux" ;;
-    Darwin)  GOOS="darwin" ;;
-    *)       die "Sistema operacional nao suportado: $OS (suporte a Windows via Scoop)" ;;
+    Linux*)         GOOS="linux" ;;
+    Darwin*)        GOOS="darwin" ;;
+    MINGW* | MSYS*) GOOS="windows" ;;
+    *)              die "Sistema operacional nao suportado: $OS" ;;
 esac
 
 # --- Detect arch ---
 ARCH="$(uname -m)"
 case "$ARCH" in
-    x86_64)           GOARCH="amd64" ;;
-    amd64)            GOARCH="amd64" ;;
-    arm64 | aarch64)  GOARCH="arm64" ;;
-    *)                die "Arquitetura nao suportada: $ARCH" ;;
+    x86_64)          GOARCH="amd64" ;;
+    amd64)           GOARCH="amd64" ;;
+    arm64 | aarch64) GOARCH="arm64" ;;
+    *)               die "Arquitetura nao suportada: $ARCH" ;;
 esac
 
-# --- Detect Rosetta (Darwin x86_64 emulated on arm64) ---
+# --- Detect Rosetta (Darwin arm64 reporting as x86_64) ---
 if [[ "$GOOS" == "darwin" && "$GOARCH" == "amd64" ]]; then
     if sysctl -n sysctl.proc_translated 2>/dev/null | grep -q "^1$"; then
         warn "Detectado Rosetta 2. Usando binario arm64 nativo."
         GOARCH="arm64"
     fi
+fi
+
+# --- Choose archive format ---
+if [[ "$GOOS" == "windows" ]]; then
+    ARCHIVE_EXT="zip"
+    BINARY_NAME="wt.exe"
+else
+    ARCHIVE_EXT="tar.gz"
+    BINARY_NAME="wt"
 fi
 
 # --- Fetch latest version ---
@@ -55,7 +66,7 @@ fi
 info "Versao: $VERSION"
 
 # --- Build download URLs ---
-ARCHIVE="wt_${VERSION#v}_${GOOS}_${GOARCH}.tar.gz"
+ARCHIVE="wt_${VERSION#v}_${GOOS}_${GOARCH}.${ARCHIVE_EXT}"
 BASE_URL="https://github.com/${REPO}/releases/download/${VERSION}"
 ARCHIVE_URL="${BASE_URL}/${ARCHIVE}"
 CHECKSUM_URL="${BASE_URL}/checksums.txt"
@@ -92,12 +103,20 @@ if [[ -n "$SHA_CMD" ]]; then
 fi
 
 # --- Extract ---
-tar -xzf "$TMP_DIR/$ARCHIVE" -C "$TMP_DIR"
+if [[ "$ARCHIVE_EXT" == "zip" ]]; then
+    if command -v unzip >/dev/null 2>&1; then
+        unzip -q "$TMP_DIR/$ARCHIVE" -d "$TMP_DIR"
+    else
+        die "unzip nao encontrado. Instale via: pacman -S unzip (Git Bash) ou apt install unzip (WSL)"
+    fi
+else
+    tar -xzf "$TMP_DIR/$ARCHIVE" -C "$TMP_DIR"
+fi
 
 # --- Install ---
 mkdir -p "$BIN_DIR"
-install -m 0755 "$TMP_DIR/wt" "$BIN_DIR/wt"
-info "Instalado em: $BIN_DIR/wt"
+install -m 0755 "$TMP_DIR/$BINARY_NAME" "$BIN_DIR/$BINARY_NAME"
+info "Instalado em: $BIN_DIR/$BINARY_NAME"
 
 # --- Verify PATH ---
 if ! printf '%s' "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
