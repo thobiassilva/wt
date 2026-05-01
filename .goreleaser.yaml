@@ -1,0 +1,89 @@
+version: 2
+
+project_name: wt
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: wt
+    main: ./cmd/wt
+    binary: wt
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}"
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "merge conflict"
+      - "Merge pull request"
+      - "Merge remote-tracking branch"
+      - "Merge branch"
+
+brews:
+  - name: wt
+    repository:
+      owner: thobiassilva
+      name: homebrew-tap
+      token: "{{ .Env.GH_PAT }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    directory: Formula
+    homepage: https://github.com/thobiassilva/wt
+    description: "Git worktree manager with .worktreeinclude support"
+    license: MIT
+    test: |
+      system "#{bin}/wt --version"
+    install: |
+      bin.install "wt"
+
+scoops:
+  - name: wt
+    repository:
+      owner: thobiassilva
+      name: scoop-bucket
+      token: "{{ .Env.GH_PAT }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    homepage: https://github.com/thobiassilva/wt
+    description: "Git worktree manager with .worktreeinclude support"
+    license: MIT
+
+release:
+  draft: false
+  prerelease: auto
