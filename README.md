@@ -7,15 +7,31 @@ CLI para criacao de git worktrees com copia automatica de arquivos gitignored vi
 - Cria uma git worktree a partir de uma branch
 - Deriva automaticamente o nome da worktree a partir da branch (camelCase para kebab-case)
 - Copia arquivos listados em `.worktreeinclude` para a nova worktree (ex: `.env`, chaves, configs locais)
-- Funciona em qualquer repositorio git
+- Suporta a sintaxe completa do `.gitignore`, incluindo **padroes de negacao** (`!`)
+- Funciona em macOS, Linux e Windows
 
 ## Instalacao
+
+**macOS / Linux:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thobiassilva/wt/main/install.sh | bash
 ```
 
-Isso clona o repositorio em `~/.wt/` e cria um symlink em `~/.local/bin/wt`.
+O script detecta seu OS e arquitetura, baixa o binario correto do GitHub Releases e instala em `~/.local/bin/wt`.
+
+**Windows:**
+
+```powershell
+scoop bucket add thobiassilva https://github.com/thobiassilva/scoop-bucket
+scoop install wt
+```
+
+**macOS (Homebrew):**
+
+```bash
+brew install thobiassilva/tap/wt
+```
 
 Se `~/.local/bin` nao estiver no seu PATH, adicione ao seu `~/.zshrc` (ou `~/.bashrc`):
 
@@ -25,13 +41,12 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### Atualizacao
 
-Execute o mesmo comando de instalacao. O script detecta que ja existe e faz `git pull`.
+Re-execute o comando de instalacao. O script baixa a versao mais recente e substitui o binario.
 
 ### Desinstalacao
 
 ```bash
 rm ~/.local/bin/wt
-rm -rf ~/.wt
 ```
 
 ## Uso
@@ -91,11 +106,16 @@ wt feature/loginForm --no-include
 
 ## .worktreeinclude
 
-Crie um arquivo `.worktreeinclude` na raiz do repositorio listando arquivos gitignored que devem ser copiados para novas worktrees. Usa a mesma sintaxe do `.gitignore`.
+Crie um arquivo `.worktreeinclude` na raiz do repositorio listando arquivos gitignored que devem ser copiados para novas worktrees. Usa a sintaxe completa do `.gitignore`, incluindo padroes de negacao.
 
-```
+```gitignore
 # .worktreeinclude
-.env
+
+# Copiar todos os .env, exceto o de producao
+*.env
+!prod.env
+
+# Configs locais
 .env.local
 lib/firebase_options.dart
 android/app/google-services.json
@@ -108,4 +128,3 @@ Apenas arquivos que sao **gitignored e untracked** serao copiados. Arquivos trac
 ## Requisitos
 
 - git
-- bash 3.2+
