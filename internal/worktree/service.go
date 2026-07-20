@@ -46,6 +46,17 @@ func (s *Service) BuildPlan(ctx context.Context, opts Options) (Plan, error) {
 		return Plan{}, fmt.Errorf("check branch: %w", err)
 	}
 
+	// --base can only be honored when the branch is created. If the branch
+	// already exists, `git worktree add` checks it out at its current tip and
+	// the base is silently ignored — so reject an explicit --base loudly
+	// instead of producing a worktree that does not start where the user asked.
+	if exists && opts.BaseExplicit {
+		return Plan{}, fmt.Errorf(
+			"branch %q já existe; a base %q não pode ser aplicada — remova a branch/worktree ou escolha outro nome",
+			opts.Branch, opts.Base,
+		)
+	}
+
 	// Derive worktree directory name.
 	worktreeName := opts.Name
 	if worktreeName == "" {

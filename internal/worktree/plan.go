@@ -16,10 +16,11 @@ type Plan struct {
 
 // Options is the user-facing input from CLI flags.
 type Options struct {
-	Branch     string
-	Name       string
-	Base       string
-	PathPrefix string
-	NoInclude  bool
-	DryRun     bool
+	Branch       string
+	Name         string
+	Base         string
+	BaseExplicit bool // true when --base was passed explicitly (not defaulted)
+	PathPrefix   string
+	NoInclude    bool
+	DryRun       bool
 }

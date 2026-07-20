@@ -51,12 +51,13 @@ DERIVACAO (branch -> worktree):
   wt feature/loginForm --dry-run`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(cmd.Context(), svc, out, args[0], worktree.Options{
-				Branch:     args[0],
-				Name:       name,
-				Base:       base,
-				PathPrefix: path,
-				NoInclude:  noInclude,
-				DryRun:     dryRun,
+				Branch:       args[0],
+				Name:         name,
+				Base:         base,
+				BaseExplicit: cmd.Flags().Changed("base"),
+				PathPrefix:   path,
+				NoInclude:    noInclude,
+				DryRun:       dryRun,
 			})
 		},
 		// SilenceUsage stops usage from re-printing on error; SilenceErrors
@@ -111,11 +112,16 @@ func run(ctx context.Context, svc *worktree.Service, out *Output, branch string,
 }
 
 func printSummary(out *Output, plan worktree.Plan) {
-	action := "Criando"
+	// When the branch already exists, `git worktree add` checks it out as-is;
+	// the base is not applied, so we omit it and warn instead of implying it was.
 	if plan.BranchExists {
-		action = "Reusando"
+		out.Info("Reusando worktree")
+		out.Info("  Branch  : %s", plan.Branch)
+		out.Info("  Destino : %s", plan.Dest)
+		out.Warn("branch %q já existe — usando a branch existente (base ignorada)", plan.Branch)
+		return
 	}
-	out.Info("%s worktree", action)
+	out.Info("Criando worktree")
 	out.Info("  Branch  : %s", plan.Branch)
 	out.Info("  Base    : %s", plan.Base)
 	out.Info("  Destino : %s", plan.Dest)

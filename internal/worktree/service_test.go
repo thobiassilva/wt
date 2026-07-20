@@ -56,6 +56,54 @@ func TestBuildPlan_ExistingBranch(t *testing.T) {
 	assert.True(t, plan.BranchExists)
 }
 
+func TestBuildPlan_ExplicitBaseWithExistingBranch_Error(t *testing.T) {
+	g := defaultFakeGit()
+	g.Branches["feature/x"] = true
+	fs, _ := makeFS(t, "/repo")
+
+	svc := newTestService(g, fs)
+	_, err := svc.BuildPlan(context.Background(), Options{
+		Branch:       "feature/x",
+		Base:         "develop",
+		BaseExplicit: true,
+		PathPrefix:   "/tmp",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "já existe")
+	assert.Contains(t, err.Error(), "develop")
+}
+
+func TestBuildPlan_ExistingBranch_NoExplicitBase_OK(t *testing.T) {
+	g := defaultFakeGit()
+	g.Branches["feature/x"] = true
+	fs, _ := makeFS(t, "/repo")
+
+	svc := newTestService(g, fs)
+	plan, err := svc.BuildPlan(context.Background(), Options{
+		Branch:     "feature/x",
+		Base:       "develop", // present but not explicit -> reuse is allowed
+		PathPrefix: "/tmp",
+	})
+	require.NoError(t, err)
+	assert.True(t, plan.BranchExists)
+}
+
+func TestBuildPlan_ExplicitBaseWithNewBranch_OK(t *testing.T) {
+	g := defaultFakeGit()
+	fs, _ := makeFS(t, "/repo")
+
+	svc := newTestService(g, fs)
+	plan, err := svc.BuildPlan(context.Background(), Options{
+		Branch:       "feature/x",
+		Base:         "develop",
+		BaseExplicit: true,
+		PathPrefix:   "/tmp",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "develop", plan.Base)
+	assert.False(t, plan.BranchExists)
+}
+
 func TestBuildPlan_CustomName(t *testing.T) {
 	g := defaultFakeGit()
 	fs, _ := makeFS(t, "/repo")
