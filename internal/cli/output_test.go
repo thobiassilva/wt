@@ -6,6 +6,46 @@ import (
 	"testing"
 )
 
+func TestTable_AlignsColumns(t *testing.T) {
+	o, stdout, _, _ := newTestOutput(t)
+	o.Table(
+		[]string{"NOME", "BRANCH"},
+		[][]string{
+			{"feature-login-form", "feature/loginForm"},
+			{"x", "y"},
+		},
+	)
+	got := stdout.String()
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 lines (header + 2 rows), got %d: %q", len(lines), got)
+	}
+	if !strings.HasPrefix(lines[0], "NOME") {
+		t.Errorf("header not first: %q", lines[0])
+	}
+	// Columns are padded to the widest cell, so the BRANCH column starts at the
+	// same offset on every line.
+	col := strings.Index(lines[0], "BRANCH")
+	if col <= 0 {
+		t.Fatalf("BRANCH column not found in header: %q", lines[0])
+	}
+	if got := strings.Index(lines[1], "feature/loginForm"); got != col {
+		t.Errorf("row 1 branch column at %d, want %d: %q", got, col, lines[1])
+	}
+}
+
+func TestTable_PadsShortRows(t *testing.T) {
+	o, stdout, _, _ := newTestOutput(t)
+	o.Table(
+		[]string{"A", "B", "C"},
+		[][]string{{"1"}},
+	)
+	got := stdout.String()
+	if !strings.Contains(got, "1") {
+		t.Errorf("missing cell content: %q", got)
+	}
+}
+
 // newTestOutput returns an Output with buffers and NoColor enabled by default.
 // The injected exit fn records its argument into the returned pointer.
 func newTestOutput(t *testing.T) (*Output, *bytes.Buffer, *bytes.Buffer, *int) {

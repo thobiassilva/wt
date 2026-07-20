@@ -150,6 +150,76 @@ func TestIntegration_InvalidBranchName_Error(t *testing.T) {
 	assert.NotEqual(t, 0, code)
 }
 
+func TestIntegration_List(t *testing.T) {
+	repo := setupRepo(t)
+	dest := filepath.Join(t.TempDir(), "feature-listed")
+	_, code := runWt(t, repo, "feature/listed", "--path", filepath.Dir(dest))
+	require.Equal(t, 0, code)
+
+	out, code := runWt(t, repo, "list")
+	assert.Equal(t, 0, code, "output: %s", out)
+	assert.Contains(t, out, "main")
+	assert.Contains(t, out, "feature/listed")
+	assert.Contains(t, out, "feature-listed")
+	// The main repo is the current worktree, marked with "*".
+	assert.Contains(t, out, "*")
+}
+
+func TestIntegration_Remove_KeepsBranch(t *testing.T) {
+	repo := setupRepo(t)
+	dest := filepath.Join(t.TempDir(), "feature-remove-me")
+	_, code := runWt(t, repo, "feature/removeMe", "--path", filepath.Dir(dest))
+	require.Equal(t, 0, code)
+	require.DirExists(t, dest)
+
+	// Remove by derived name.
+	out, code := runWt(t, repo, "remove", "feature-remove-me")
+	assert.Equal(t, 0, code, "output: %s", out)
+
+	_, err := os.Stat(dest)
+	assert.True(t, os.IsNotExist(err), "worktree dir must be gone")
+
+	// Branch must still exist.
+	cmd := exec.Command("git", "branch", "--list", "feature/removeMe")
+	cmd.Dir = repo
+	branchOut, _ := cmd.Output()
+	assert.Contains(t, string(branchOut), "feature/removeMe", "branch must be kept")
+}
+
+func TestIntegration_Remove_DeleteBranch(t *testing.T) {
+	repo := setupRepo(t)
+	dest := filepath.Join(t.TempDir(), "feature-gone")
+	_, code := runWt(t, repo, "feature/gone", "--path", filepath.Dir(dest))
+	require.Equal(t, 0, code)
+
+	// Remove by branch name with --delete-branch.
+	out, code := runWt(t, repo, "rm", "feature/gone", "--delete-branch")
+	assert.Equal(t, 0, code, "output: %s", out)
+
+	cmd := exec.Command("git", "branch", "--list", "feature/gone")
+	cmd.Dir = repo
+	branchOut, _ := cmd.Output()
+	assert.NotContains(t, string(branchOut), "feature/gone", "branch must be deleted")
+}
+
+func TestIntegration_Remove_DryRun(t *testing.T) {
+	repo := setupRepo(t)
+	dest := filepath.Join(t.TempDir(), "feature-keep")
+	_, code := runWt(t, repo, "feature/keep", "--path", filepath.Dir(dest))
+	require.Equal(t, 0, code)
+
+	out, code := runWt(t, repo, "remove", "feature/keep", "--dry-run")
+	assert.Equal(t, 0, code, "output: %s", out)
+	assert.Contains(t, out, "dry-run")
+	assert.DirExists(t, dest, "worktree must survive dry-run")
+}
+
+func TestIntegration_Remove_NotFound_Error(t *testing.T) {
+	repo := setupRepo(t)
+	_, code := runWt(t, repo, "remove", "nope-does-not-exist")
+	assert.NotEqual(t, 0, code)
+}
+
 func TestIntegration_NoInclude(t *testing.T) {
 	repo := setupRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".gitignore"), []byte(".env\n"), 0o644))

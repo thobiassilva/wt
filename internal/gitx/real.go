@@ -150,6 +150,87 @@ func (g *realGit) LsIgnored(ctx context.Context, repoRoot string, paths []string
 	return result, nil
 }
 
+// WorktreeList runs `git worktree list --porcelain` and parses the output into
+// Worktree records. The main worktree is always the first entry.
+func (g *realGit) WorktreeList(ctx context.Context) ([]Worktree, error) {
+	out, err := g.run(ctx, "", "worktree", "list", "--porcelain")
+	if err != nil {
+		return nil, err
+	}
+	return parseWorktreePorcelain(out), nil
+}
+
+// parseWorktreePorcelain parses the output of `git worktree list --porcelain`.
+// Records are separated by blank lines; each attribute is a label optionally
+// followed by a value. The "branch" attribute carries a full ref name
+// (refs/heads/<name>), which we shorten to <name>.
+func parseWorktreePorcelain(out string) []Worktree {
+	var (
+		result []Worktree
+		cur    Worktree
+		inRec  bool
+	)
+	flush := func() {
+		if inRec {
+			result = append(result, cur)
+		}
+		cur = Worktree{}
+		inRec = false
+	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if line == "" {
+			flush()
+			continue
+		}
+		label, value, _ := strings.Cut(line, " ")
+		switch label {
+		case "worktree":
+			cur.Path = value
+			inRec = true
+		case "HEAD":
+			cur.Head = value
+		case "branch":
+			cur.Branch = strings.TrimPrefix(value, "refs/heads/")
+		case "bare":
+			cur.Bare = true
+		case "detached":
+			cur.Detached = true
+		case "locked":
+			cur.Locked = true
+		case "prunable":
+			cur.Prunable = true
+		}
+	}
+	flush()
+	return result
+}
+
+// WorktreeRemove runs `git worktree remove <path>`, adding --force when force.
+func (g *realGit) WorktreeRemove(ctx context.Context, path string, force bool) error {
+	args := []string{"worktree", "remove"}
+	if force {
+		args = append(args, "--force")
+	}
+	args = append(args, path)
+	if _, err := g.run(ctx, "", args...); err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteBranch runs `git branch -d <name>` (or -D when force is true).
+func (g *realGit) DeleteBranch(ctx context.Context, name string, force bool) error {
+	flag := "-d"
+	if force {
+		flag = "-D"
+	}
+	if _, err := g.run(ctx, "", "branch", flag, name); err != nil {
+		return err
+	}
+	return nil
+}
+
 // CheckRefFormat validates a branch name via `git check-ref-format --branch`.
 func (g *realGit) CheckRefFormat(ctx context.Context, branch string) error {
 	cmd := exec.CommandContext(ctx, g.exe, "check-ref-format", "--branch", branch)

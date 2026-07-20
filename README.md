@@ -8,6 +8,7 @@ CLI para criacao de git worktrees com copia automatica de arquivos gitignored vi
 - Deriva automaticamente o nome da worktree a partir da branch (camelCase para kebab-case)
 - Copia arquivos listados em `.worktreeinclude` para a nova worktree (ex: `.env`, chaves, configs locais)
 - Suporta a sintaxe completa do `.gitignore`, incluindo **padroes de negacao** (`!`)
+- Lista as worktrees existentes (`wt list`) e remove worktrees (`wt remove`)
 - Funciona em macOS, Linux e Windows
 
 ## Instalacao
@@ -77,8 +78,14 @@ Remove-Item "$HOME\.local\bin\wt.exe"
 ## Uso
 
 ```bash
-wt <branch> [opcoes]
+wt <branch> [opcoes]     # cria uma worktree
+wt list                  # lista as worktrees (alias: wt ls)
+wt remove <alvo>         # remove uma worktree (alias: wt rm)
 ```
+
+> Como `list`/`ls`/`remove`/`rm` sao subcomandos, uma branch com exatamente
+> um desses nomes seria interpretada como subcomando. Nesse caso use um nome
+> com prefixo (ex.: `feature/list`).
 
 ### Argumentos e opcoes
 
@@ -127,6 +134,58 @@ wt feature/loginForm --dry-run
 
 # Sem copia de .worktreeinclude
 wt feature/loginForm --no-include
+```
+
+## Listar worktrees
+
+```bash
+wt list      # alias: wt ls
+```
+
+Mostra uma tabela com todas as worktrees do repositorio. A worktree atual e
+marcada com `*`:
+
+```
+   NOME                    BRANCH                CAMINHO
+*  repo                    main                  /caminho/para/repo
+   feature-login-form      feature/loginForm     /caminho/para/feature-login-form
+   bugfix-fix-api-timeout  bugfix/fixApiTimeout  /caminho/para/bugfix-fix-api-timeout
+```
+
+## Remover worktrees
+
+```bash
+wt remove <alvo> [opcoes]   # alias: wt rm
+```
+
+O `<alvo>` pode ser o **nome da branch**, o **nome do diretorio derivado** ou o
+**caminho** da worktree — todos resolvem para a mesma worktree:
+
+```bash
+wt remove feature/loginForm      # pelo nome da branch
+wt remove feature-login-form     # pelo nome do diretorio derivado
+wt remove ../feature-login-form  # pelo caminho
+```
+
+| Opcao | Curto | Descricao | Default |
+|---|---|---|---|
+| `--force` | `-f` | Forca a remocao (repassa `--force` ao git; util para worktree com alteracoes nao commitadas ou locked) | false |
+| `--delete-branch` | `-D` | Remove tambem a branch git associada | false |
+| `--dry-run` | `-n` | Mostra o que seria feito sem executar | false |
+
+Por padrao a branch git e **mantida** (espelha `git worktree remove`); use
+`--delete-branch` para remove-la junto. A worktree atual/principal nao pode ser
+removida.
+
+```bash
+# Remove worktree E a branch
+wt remove feature/loginForm --delete-branch
+
+# Forca remocao de worktree com alteracoes nao commitadas
+wt remove feature/loginForm --force
+
+# Ver o que seria removido sem executar
+wt remove feature/loginForm --dry-run
 ```
 
 ## .worktreeinclude

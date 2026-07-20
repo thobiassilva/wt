@@ -59,7 +59,10 @@ DERIVACAO (branch -> worktree):
 				DryRun:     dryRun,
 			})
 		},
-		SilenceUsage: true,
+		// SilenceUsage stops usage from re-printing on error; SilenceErrors
+		// stops cobra from printing the error too, since main.go already does.
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	cmd.Flags().StringVarP(&name, "name", "w", "", "Nome da worktree (default: derivado da branch)")
@@ -72,6 +75,9 @@ DERIVACAO (branch -> worktree):
 	cmd.Flags().BoolP("version", "V", false, "Mostra versao")
 	// Bind the -V flag to cobra's built-in version handling.
 	cmd.SetVersionTemplate("wt {{.Version}}\n")
+
+	cmd.AddCommand(buildListCmd(svc, out))
+	cmd.AddCommand(buildRemoveCmd(svc, out))
 
 	return cmd
 }

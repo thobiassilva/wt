@@ -182,6 +182,63 @@ func TestRealGit_LsIgnored_Scoped(t *testing.T) {
 	assert.True(t, found, "expected 'secrets/' or 'secrets/key' in %v", got)
 }
 
+func TestRealGit_WorktreeList(t *testing.T) {
+	g := newRealForTest(t)
+	dir := setupRepo(t)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	require.NoError(t, os.Chdir(dir))
+
+	require.NoError(t, g.CreateBranch(context.Background(), "feature/list", "main"))
+	dest := filepath.Join(t.TempDir(), "wt-list")
+	require.NoError(t, g.WorktreeAdd(context.Background(), dest, "feature/list"))
+
+	got, err := g.WorktreeList(context.Background())
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(got), 2)
+
+	branches := map[string]bool{}
+	for _, wt := range got {
+		branches[wt.Branch] = true
+	}
+	assert.True(t, branches["main"], "expected main in %+v", got)
+	assert.True(t, branches["feature/list"], "expected feature/list in %+v", got)
+}
+
+func TestRealGit_WorktreeRemove(t *testing.T) {
+	g := newRealForTest(t)
+	dir := setupRepo(t)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	require.NoError(t, os.Chdir(dir))
+
+	require.NoError(t, g.CreateBranch(context.Background(), "feature/rm", "main"))
+	dest := filepath.Join(t.TempDir(), "wt-rm")
+	require.NoError(t, g.WorktreeAdd(context.Background(), dest, "feature/rm"))
+
+	require.NoError(t, g.WorktreeRemove(context.Background(), dest, false))
+	_, statErr := os.Stat(dest)
+	assert.True(t, os.IsNotExist(statErr), "worktree dir must be removed")
+}
+
+func TestRealGit_DeleteBranch(t *testing.T) {
+	g := newRealForTest(t)
+	dir := setupRepo(t)
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Chdir(cwd) })
+	require.NoError(t, os.Chdir(dir))
+
+	require.NoError(t, g.CreateBranch(context.Background(), "feature/del", "main"))
+	require.NoError(t, g.DeleteBranch(context.Background(), "feature/del", true))
+
+	exists, err := g.BranchExists(context.Background(), "feature/del")
+	require.NoError(t, err)
+	assert.False(t, exists)
+}
+
 func TestRealGit_CheckRefFormat(t *testing.T) {
 	g := newRealForTest(t)
 

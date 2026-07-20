@@ -17,6 +17,55 @@ func TestFakeGit_NewFakeInitializesMaps(t *testing.T) {
 	assert.NotNil(t, f.RefFormatErrors)
 	assert.NotNil(t, f.Created)
 	assert.NotNil(t, f.Worktrees)
+	assert.NotNil(t, f.Removed)
+	assert.NotNil(t, f.DeletedBranches)
+}
+
+func TestFakeGit_WorktreeList(t *testing.T) {
+	f := NewFake()
+	f.WorktreeListValue = []Worktree{{Path: "/repo", Branch: "main"}}
+	got, err := f.WorktreeList(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, []Worktree{{Path: "/repo", Branch: "main"}}, got)
+}
+
+func TestFakeGit_WorktreeList_ForcedError(t *testing.T) {
+	f := NewFake()
+	boom := errors.New("boom")
+	f.WorktreeListErr = boom
+	_, err := f.WorktreeList(context.Background())
+	assert.ErrorIs(t, err, boom)
+}
+
+func TestFakeGit_WorktreeRemove_RecordsCalls(t *testing.T) {
+	f := NewFake()
+	require.NoError(t, f.WorktreeRemove(context.Background(), "../wt-feature", false))
+	require.NoError(t, f.WorktreeRemove(context.Background(), "../wt-bug", true))
+	assert.Equal(t, []string{"../wt-feature", "../wt-bug"}, f.Removed)
+}
+
+func TestFakeGit_WorktreeRemove_ForcedError(t *testing.T) {
+	f := NewFake()
+	boom := errors.New("boom")
+	f.WorktreeRemoveErr = boom
+	err := f.WorktreeRemove(context.Background(), "../x", false)
+	assert.ErrorIs(t, err, boom)
+	assert.Empty(t, f.Removed)
+}
+
+func TestFakeGit_DeleteBranch_RecordsCalls(t *testing.T) {
+	f := NewFake()
+	require.NoError(t, f.DeleteBranch(context.Background(), "feature/x", false))
+	assert.Equal(t, []string{"feature/x"}, f.DeletedBranches)
+}
+
+func TestFakeGit_DeleteBranch_ForcedError(t *testing.T) {
+	f := NewFake()
+	boom := errors.New("boom")
+	f.DeleteBranchErr = boom
+	err := f.DeleteBranch(context.Background(), "feature/x", true)
+	assert.ErrorIs(t, err, boom)
+	assert.Empty(t, f.DeletedBranches)
 }
 
 func TestFakeGit_RepoRoot(t *testing.T) {

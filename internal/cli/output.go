@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"text/tabwriter"
 
 	"golang.org/x/term"
 )
@@ -102,4 +103,35 @@ func (o *Output) Die(format string, args ...any) {
 func (o *Output) Section(title string) {
 	line := fmt.Sprintf("--- %s ---", title)
 	fmt.Fprintf(o.Stdout, "\n%s\n", o.color(ansiBold+ansiCyan, line))
+}
+
+// Table prints headers and rows as tab-aligned columns to stdout. Rows with
+// fewer cells than headers are padded with empty cells; extra cells are
+// ignored. The header is intentionally not colorized: ANSI escapes would be
+// counted as visible width by tabwriter and misalign the columns.
+func (o *Output) Table(headers []string, rows [][]string) {
+	w := tabwriter.NewWriter(o.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, joinCells(headers))
+	for _, row := range rows {
+		cells := make([]string, len(headers))
+		for i := range headers {
+			if i < len(row) {
+				cells[i] = row[i]
+			}
+		}
+		fmt.Fprintln(w, joinCells(cells))
+	}
+	_ = w.Flush()
+}
+
+// joinCells joins cells with a tab so tabwriter can align them.
+func joinCells(cells []string) string {
+	out := ""
+	for i, c := range cells {
+		if i > 0 {
+			out += "\t"
+		}
+		out += c
+	}
+	return out
 }

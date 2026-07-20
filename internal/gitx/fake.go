@@ -29,13 +29,21 @@ type FakeGit struct {
 	// return for it. A nil entry (or missing key) means "valid".
 	RefFormatErrors map[string]error
 
+	// WorktreeListValue is returned by WorktreeList.
+	WorktreeListValue []Worktree
+
 	// Recorded calls.
-	Created   []string
-	Worktrees []WorktreeRecord
+	Created         []string
+	Worktrees       []WorktreeRecord
+	Removed         []string // paths passed to WorktreeRemove
+	DeletedBranches []string // names passed to DeleteBranch
 
 	// Forced errors for mutation methods.
-	CreateBranchErr error
-	WorktreeAddErr  error
+	CreateBranchErr   error
+	WorktreeAddErr    error
+	WorktreeListErr   error
+	WorktreeRemoveErr error
+	DeleteBranchErr   error
 }
 
 // NewFake returns an initialized FakeGit with all maps and slices ready to use.
@@ -46,6 +54,8 @@ func NewFake() *FakeGit {
 		RefFormatErrors: map[string]error{},
 		Created:         []string{},
 		Worktrees:       []WorktreeRecord{},
+		Removed:         []string{},
+		DeletedBranches: []string{},
 	}
 }
 
@@ -103,6 +113,34 @@ func (f *FakeGit) CheckRefFormat(_ context.Context, branch string) error {
 	if err, ok := f.RefFormatErrors[branch]; ok {
 		return err
 	}
+	return nil
+}
+
+// WorktreeList returns the configured WorktreeListValue, or WorktreeListErr.
+func (f *FakeGit) WorktreeList(_ context.Context) ([]Worktree, error) {
+	if f.WorktreeListErr != nil {
+		return nil, f.WorktreeListErr
+	}
+	return f.WorktreeListValue, nil
+}
+
+// WorktreeRemove records the removed path. If WorktreeRemoveErr is non-nil it
+// is returned and no state is mutated.
+func (f *FakeGit) WorktreeRemove(_ context.Context, path string, _ bool) error {
+	if f.WorktreeRemoveErr != nil {
+		return f.WorktreeRemoveErr
+	}
+	f.Removed = append(f.Removed, path)
+	return nil
+}
+
+// DeleteBranch records the deleted branch name. If DeleteBranchErr is non-nil
+// it is returned and no state is mutated.
+func (f *FakeGit) DeleteBranch(_ context.Context, name string, _ bool) error {
+	if f.DeleteBranchErr != nil {
+		return f.DeleteBranchErr
+	}
+	f.DeletedBranches = append(f.DeletedBranches, name)
 	return nil
 }
 
