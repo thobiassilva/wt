@@ -22,7 +22,8 @@ func TestList_ReturnsWorktreesAndCurrent(t *testing.T) {
 	worktrees, current, err := svc.List(context.Background())
 	require.NoError(t, err)
 	assert.Len(t, worktrees, 2)
-	assert.Equal(t, "/repo", current)
+	// current is normalized to the platform's path form (e.g. "\\repo" on Windows).
+	assert.Equal(t, resolvePath("/repo"), current)
 }
 
 func TestList_Error(t *testing.T) {
